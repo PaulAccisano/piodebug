@@ -70,13 +70,8 @@ def sm_print_state(id, program, state, breakpoints = 0):
     SHIFTCTRL_IN_SHIFTDIR_BITS = 0x00040000
     SHIFTCTRL_OUT_SHIFTDIR_BITS = 0x00080000
 
-    ssb = len(program[PROG_SIDESET_PINS]) if program[PROG_SIDESET_PINS] else 0
-    sso = program[PROG_EXECCTRL] & EXECCTRL_SIDE_EN_BITS
     tx_size = 8 if program[PROG_SHIFTCTRL] & SHIFTCTRL_FJOIN_TX_BITS else 0 if program[PROG_SHIFTCTRL] & SHIFTCTRL_FJOIN_RX_BITS else 4
     rx_size = 8 - tx_size
-    instructions = [asm_pio_decode(instr, side_set_bits=ssb, side_set_opt=sso, addr=index) for index, instr in enumerate(program[PROG_DATA])]
-    offset = program[PROG_OFFSET_PIO0] if (id >> 2) == 0 else program[PROG_OFFSET_PIO1]
-    addr = state['addr'] - offset
 
     # Display registers in hex, signed decimal, and binary
     toSigned = lambda x: ((x & 0xffffffff) ^ 0x80000000) - 0x80000000
@@ -107,21 +102,29 @@ def sm_print_state(id, program, state, breakpoints = 0):
         f"        {'  '.join(['*' if state['irq'] & (1 << i) else ' ' for i in range(8)])}"
     ]
 
+    # Build instruction list
+    ssb = len(program[PROG_SIDESET_PINS]) if program[PROG_SIDESET_PINS] else 0
+    sso = program[PROG_EXECCTRL] & EXECCTRL_SIDE_EN_BITS
+    instructions = [asm_pio_decode(instr, side_set_bits=ssb, side_set_opt=sso, addr=index) for index, instr in enumerate(program[PROG_DATA])]
+    offset = program[PROG_OFFSET_PIO0] if (id >> 2) == 0 else program[PROG_OFFSET_PIO1]
+    instruction_index = state['addr'] - offset
+
     # Compute target if active instruction is a jump
     jmp = [-1, -1]
-    if 0 <= addr < len(program[PROG_DATA]) and program[PROG_DATA][addr] >> 13 == 0b000:
-        jmp = sorted([addr, program[PROG_DATA][addr] & 0b11111])
-    
-    # Display the program on the left, and the state on the right
-    instructions += [''] * (len(state_display_lines) - len(instructions))
-    lines = [
-        f"{i:02}{'*' if breakpoints & (1 << i) else ' '}" + \
-        f"{'>' if i == addr else ' '} " + \
-        f"{'.-' if i == jmp[0] else '`-' if i == jmp[1] else '| ' if jmp[0] < i < jmp[1] else '  ' }" + \
-        f"{instructions[i]:<36} |{state_display_lines[i]}"
-        for i in range(len(instructions))
+    if 0 <= instruction_index < len(program[PROG_DATA]) and program[PROG_DATA][instruction_index] >> 13 == 0b000:
+        jmp = sorted([instruction_index, program[PROG_DATA][instruction_index] & 0b11111])
+
+    instruction_lines = [
+        f"{(index + offset):02}{'*' if breakpoints & (1 << (index + offset)) else ' '}" + \
+        f"{'>' if index == instruction_index else ' '} " + \
+        f"{'.-' if index == jmp[0] else '`-' if index == jmp[1] else '| ' if jmp[0] < index < jmp[1] else '  ' }" + \
+        f"{instr:<36}"
+        for index, instr in enumerate(instructions)
     ]
-    
+
+    # Display the program on the left, and the state on the right
+    instruction_lines += [' ' * 43] * (len(state_display_lines) - len(instruction_lines))
+    lines = [ iline + " | " + sline for iline, sline in zip(instruction_lines, state_display_lines) ]
     print('\n'.join(lines))
 
 def sm_interactive_debug(id, program):
@@ -166,7 +169,7 @@ def sm_interactive_debug(id, program):
                 
             elif command == 'b':
                 bp_line = int(input("Enter breakpoint address: "))
-                breakpoints ^= 1 << (bp_line + offset)
+                breakpoints ^= 1 << bp_line
                 
             elif command == 'q':
                 break
