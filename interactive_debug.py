@@ -54,7 +54,7 @@ def asm_pio_decode(instruction, side_set_bits = 0, side_set_opt = False, addr = 
     return ret
 
 # Print out a pretty version of the state machine's program and state
-def print_state(id, program, state, breakpoints = 0):
+def sm_print_state(id, program, state, breakpoints = 0):
     PROG_DATA = 0
     PROG_OFFSET_PIO0 = 1
     PROG_OFFSET_PIO1 = 2
@@ -124,7 +124,7 @@ def print_state(id, program, state, breakpoints = 0):
     
     print('\n'.join(lines))
 
-def interactive_debug(id, program):
+def sm_interactive_debug(id, program):
     PROG_OFFSET_PIO0 = 1
     PROG_OFFSET_PIO1 = 2
 
@@ -136,7 +136,7 @@ def interactive_debug(id, program):
         if last_command != '?':
             print("\n\n")
             state = sm_get_state(id)
-            print_state(id, program, state, breakpoints)
+            sm_print_state(id, program, state, breakpoints)
 
         command = input("\nEnter command ('?' for help, blank to repeat last): ")
         if command == '':
