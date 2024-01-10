@@ -5,7 +5,7 @@ MPY_DIR = ../Micropython
 MOD = piodebug
 
 # Source files (.c or .py)
-SRC = $(wildcard *.c) $(wildcard *.py)
+SRC = $(wildcard src/*.c) $(wildcard src/*.py)
 
 # Architecture to build for (x86, x64, armv6m, armv7m, xtensa, xtensawin)
 ARCH = armv6m
